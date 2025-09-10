@@ -8,6 +8,7 @@
 .cache/
 .mypy_cache/
 .coverage
+config_dev.yaml
 settings.json
 
 # Distribution / packaging

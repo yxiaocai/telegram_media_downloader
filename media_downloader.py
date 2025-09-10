@@ -576,7 +576,7 @@ async def download_chat_task(
 
     # 历史消息
     async for message in messages_iter:  # type: ignore
-        process_message(client, chat_download_config, node, message)
+        await process_message(client, chat_download_config, node, message)
 
     # --- 实时监听 ---
     if listen:
@@ -693,7 +693,6 @@ def main():
         app.loop.run_until_complete(start_server(client))
         logger.success(_t("Successfully started (Press Ctrl+C to stop)"))
         logger.info(f"app listen = {app.listen}")
-        logger.info("debug")
         app.loop.create_task(download_all_chat(client, listen=False))
         for _ in range(app.max_download_task):
             task = app.loop.create_task(worker(client))
