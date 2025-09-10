@@ -307,6 +307,14 @@ class ChatDownloadConfig:
         self.upload_telegram_chat_id: Union[int, str] = None
         self.node: TaskNode = TaskNode(0)
 
+    def __str__(self):
+        return f"ChatDownloadConfig download_filter={self.download_filter}," \
+               f"ids_to_retry={self.ids_to_retry}, last_read_message_id = {self.last_read_message_id}" \
+               f"total_task = {self.total_task}, finish_task={self.finish_task}," \
+               f"need_check = {self.need_check}, upload_telegram_chat_id={self.upload_telegram_chat_id}," \
+               f"node = {self.node}"
+
+
 
 def get_config(config, key, default=None, val_type=str, verbose=True):
     """
@@ -417,6 +425,7 @@ class Application:
         self.executor = ThreadPoolExecutor(
             min(32, (os.cpu_count() or 0) + 4), thread_name_prefix="multi_task"
         )
+        self.listen = False
 
     # pylint: disable = R0915
     def assign_config(self, _config: dict) -> bool:
@@ -444,6 +453,9 @@ class Application:
         self.file_formats = _config["file_formats"]
 
         self.hide_file_name = _config.get("hide_file_name", False)
+
+        # add listen
+        self.listen = _config.get("listen", False)
 
         # option
         if _config.get("proxy"):
@@ -667,7 +679,7 @@ class Application:
         progress_args: tuple = (),
     ) -> bool:
         """Upload file"""
-
+        logger.info(f"self cloud drive config upload file: {self.cloud_drive_config.enable_upload_file}")
         if not self.cloud_drive_config.enable_upload_file:
             return False
 
@@ -816,13 +828,15 @@ class Application:
                 {"chat_id": i} for i in range(0, len(self.config["chat"]))
             ]
         idx = 0
+        logger.info(f"update config: chat down config = {self.chat_download_config}")
         # pylint: disable = R1733
+
         for key, value in self.chat_download_config.items():
             # pylint: disable = W0201
             unfinished_ids = set(value.ids_to_retry)
-
+            logger.info(f"update config(key={key}): chat down config = {value}")
             for it in value.ids_to_retry:
-                if  value.node.download_status.get(
+                if value.node.download_status.get(
                     it, DownloadStatus.FailedDownload
                 ) in [DownloadStatus.SuccessDownload, DownloadStatus.SkipDownload]:
                     unfinished_ids.remove(it)
@@ -888,7 +902,8 @@ class Application:
             if config:
                 self.config = config
                 self.assign_config(self.config)
-
+        # TODO DEL
+        logger.warning(f"chat download config is {self.chat_download_config}")
         if os.path.exists(os.path.join(os.path.abspath("."), self.app_data_file)):
             with open(
                 os.path.join(os.path.abspath("."), self.app_data_file),
@@ -985,7 +1000,7 @@ class Application:
         """Set Download status"""
         if download_status is DownloadStatus.SuccessDownload:
             self.total_download_task += 1
-
+        logger.info(f"node chat id = {node.chat_id}, self.chat_down config = {self.chat_download_config}")
         if node.chat_id not in self.chat_download_config:
             return
 
@@ -994,3 +1009,4 @@ class Application:
         self.chat_download_config[node.chat_id].last_read_message_id = max(
             self.chat_download_config[node.chat_id].last_read_message_id, message_id
         )
+        logger.info(f"update last read message id = {self.chat_download_config[node.chat_id].last_read_message_id}")

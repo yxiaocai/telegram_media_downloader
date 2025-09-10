@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import AsyncGenerator, Optional, Union
-
+from loguru import logger
 import pyrogram
 
 # pylint: disable = W0611
@@ -22,7 +22,9 @@ async def get_chunk_v2(
 ):
     """get chunk"""
     from_message_id = from_message_id or (1 if reverse else 0)
-
+    logger.info(f"get_chunk_v2; offset_id = {from_message_id}, "
+                f"add_offset = {offset * (-1 if reverse else 1) - (limit if reverse else 0)},"
+                f"limit = {limit}, max_id = {max_id}")
     messages = await utils.parse_messages(
         client,
         await client.invoke(
@@ -40,6 +42,8 @@ async def get_chunk_v2(
         ),
         replies=0,
     )
+
+    logger.warning(f"before reverse messages = {messages}")
 
     if reverse:
         messages.reverse()
@@ -62,7 +66,9 @@ async def get_chat_history_v2(
     current = 0
     total = limit or (1 << 31) - 1
     limit = min(100, total)
-
+    logger.info(f"get_chat_history_v2 chat_id = {chat_id}, limit = {limit},"
+                f"offset = {offset}, max_id= {max_id}, offset_id  ={offset_id},"
+                f"reverse = {reverse}")
     while True:
         messages = await get_chunk_v2(
             client=self,
@@ -81,6 +87,7 @@ async def get_chat_history_v2(
         offset_id = messages[-1].id + (1 if reverse else 0)
 
         for message in messages:
+            logger.warning(f"message = {message}")
             yield message
 
             current += 1

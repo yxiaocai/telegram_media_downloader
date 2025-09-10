@@ -251,6 +251,7 @@ async def upload_telegram_chat(
 ):
     """Upload telegram chat"""
     # upload telegram
+    logger.info(f"upload telegram chat: chat_id = {node.upload_telegram_chat_id}")
     if node.upload_telegram_chat_id:
         if download_status is DownloadStatus.SkipDownload and message.media:
             if message.media_group_id:
@@ -261,6 +262,7 @@ async def upload_telegram_chat(
             download_status is DownloadStatus.SkipDownload and not message.media
         ):
             try:
+                logger.info(f"upload download status = {download_status}")
                 await upload_telegram_chat_message(
                     client,
                     upload_user,
@@ -525,8 +527,13 @@ async def _upload_telegram_chat_message(
     # proc caption MEDIA_CAPTION_TOO_LONG
     if caption and len(caption) > max_caption_length:
         caption = caption[:max_caption_length]
-
+    logger.info(f"message.media_group_id = {message.media_group_id}")
     if not message.media_group_id:
+        logger.info(f"node.has_protected_content = {node.has_protected_content}")
+        logger.info(f"message has_protected_content = {message.has_protected_content}")
+        logger.info(f"node.reply_to_message = {node.reply_to_message}")
+        node.has_protected_content = True
+        logger.warning(f"todo: set has_protected_content=true")
         if not node.has_protected_content:
             if node.reply_to_message:
                 if message.text:
@@ -609,13 +616,16 @@ async def forward_multi_media(
     # Convert caption and caption_entities to markdown format
     if caption and caption_entities:
         caption = pyrogram.parser.Parser.unparse(caption, caption_entities, True)
-
+    logger.info(f"caption = {caption}")
     max_caption_length = 4096 if client.me and client.me.is_premium else 1024
     # proc caption MEDIA_CAPTION_TOO_LONG
     if caption and len(caption) > max_caption_length:
         caption = caption[:max_caption_length]
 
     media_obj = get_media_obj(message, file_name, caption)
+    logger.info(f"node.has_protected_content = {node.has_protected_content}")
+    node.has_protected_content = True  # TODO: hard code need to fix
+    logger.warning(f"set has_protected_content = true")
     if not node.has_protected_content:
         media = getattr(message, message.media.value)
         if not media:
