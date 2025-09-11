@@ -532,8 +532,9 @@ async def _upload_telegram_chat_message(
         logger.info(f"node.has_protected_content = {node.has_protected_content}")
         logger.info(f"message has_protected_content = {message.has_protected_content}")
         logger.info(f"node.reply_to_message = {node.reply_to_message}")
-        node.has_protected_content = True
+        node.has_protected_content = True  # TODO need fix
         logger.warning(f"todo: set has_protected_content=true")
+        # TODO 这里是不是用 message 判断
         if not node.has_protected_content:
             if node.reply_to_message:
                 if message.text:
@@ -624,8 +625,9 @@ async def forward_multi_media(
 
     media_obj = get_media_obj(message, file_name, caption)
     logger.info(f"node.has_protected_content = {node.has_protected_content}")
-    node.has_protected_content = True  # TODO: hard code need to fix
+    node.has_protected_content = True
     logger.warning(f"set has_protected_content = true")
+    # TODO: hard code need to fix 这里是不是应该用message判断 但是message的has_protected_content属性好像有bug
     if not node.has_protected_content:
         media = getattr(message, message.media.value)
         if not media:

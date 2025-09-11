@@ -125,7 +125,7 @@ class TaskNode:
         reply_message_id: int = 0,
         replay_message: str = None,
         upload_telegram_chat_id: Union[int, str] = None,
-        has_protected_content: bool = False,
+        has_protected_content: bool = False,  # TODO 为什么这里写这个属性
         download_filter: str = None,
         limit: int = 0,
         start_offset_id: int = 0,

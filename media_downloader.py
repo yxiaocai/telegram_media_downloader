@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple, Union
 
 import pyrogram
 from pyrogram import filters
+from pyrogram.handlers import MessageHandler
 from loguru import logger
 from pyrogram.types import Audio, Document, Photo, Video, VideoNote, Voice
 from rich.logging import RichHandler
@@ -45,7 +46,8 @@ CONFIG_NAME = "config.yaml"
 DATA_FILE_NAME = "data.yaml"
 APPLICATION_NAME = "media_downloader"
 app = Application(CONFIG_NAME, DATA_FILE_NAME, APPLICATION_NAME)
-
+# 存储 chat_id -> handler 用于动态注册/注销
+_message_handlers: dict = {}
 queue: asyncio.Queue = asyncio.Queue()
 RETRY_TIME_OUT = 3
 
@@ -564,6 +566,7 @@ async def download_chat_task(
 
     chat_download_config.node = node
     logger.info(f"chat down config={str(chat_download_config)}")
+    logger.info(f"node chat id = {node.chat_id}")
 
     if chat_download_config.ids_to_retry:
         logger.info(f"{_t('Downloading files failed during last run')}...")
@@ -578,11 +581,17 @@ async def download_chat_task(
     async for message in messages_iter:  # type: ignore
         await process_message(client, chat_download_config, node, message)
 
-    # --- 实时监听 ---
-    if listen:
-        @client.on_message(filters.chat(node.chat_id))
-        async def _new_message_handler(c: pyrogram.Client, _message):
-            await process_message(c, chat_download_config, node, _message)
+    # --- 如果开启监听，注册 handler ---
+    if listen and node.chat_id not in _message_handlers:
+        async def _new_message_handler(_, _message):
+            if _message.chat.id != node.chat_id:
+                return
+            await process_message(client, chat_download_config, node, _message)
+
+        handler = MessageHandler(_new_message_handler, filters.chat(node.chat_id))
+        client.add_handler(handler)
+        _message_handlers[node.chat_id] = handler
+        logger.info(f"Listening for new messages in chat {node.chat_id}")
 
     chat_download_config.need_check = True
     chat_download_config.total_task = node.total_task
@@ -646,8 +655,8 @@ async def run_until_all_task_finish():
         for _, value in app.chat_download_config.items():
             if not value.need_check or value.total_task != value.finish_task:
                 finish = False
-
         if (not app.bot_token and finish) or app.restart_program:
+            logger.warning(f"break down!!!!")
             break
 
         await asyncio.sleep(1)
@@ -693,7 +702,7 @@ def main():
         app.loop.run_until_complete(start_server(client))
         logger.success(_t("Successfully started (Press Ctrl+C to stop)"))
         logger.info(f"app listen = {app.listen}")
-        app.loop.create_task(download_all_chat(client, listen=False))
+        app.loop.create_task(download_all_chat(client, listen=app.listen))
         for _ in range(app.max_download_task):
             task = app.loop.create_task(worker(client))
             tasks.append(task)
@@ -714,6 +723,11 @@ def main():
         app.loop.run_until_complete(stop_server(client))
         for task in tasks:
             task.cancel()
+        # 移除所有 handler
+        for _, handler in _message_handlers.items():
+            if handler:
+                client.remove_handler(handler)
+
         logger.info(_t("Stopped!"))
         # check_for_updates(app.proxy)
         logger.info(f"{_t('update config')}......")
